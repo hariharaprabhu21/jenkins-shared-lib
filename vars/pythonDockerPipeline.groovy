@@ -2,9 +2,11 @@ def call(Map config) {
     def deployBranch = config.deployBranch ?: 'main'
     def port         = config.port ?: 5000
     def healthPath   = config.healthPath ?: '/health'
+    def pyImage      = config.pythonImage ?: 'python:3.12-slim'
+    def agentLabel   = config.agentLabel ?: 'docker'
 
     pipeline {
-        agent any
+        agent { label "${agentLabel}" }
 
         environment {
             IMAGE = "${config.image}"
@@ -18,8 +20,28 @@ def call(Map config) {
         }
 
         stages {
-            stage('Install & Test') {
-                steps { runPythonTests() }
+            stage('Checks') {
+                failFast true
+                parallel {
+                    stage('Unit Tests') {
+                        agent {
+                            docker {
+                                image "${pyImage}"
+                                reuseNode true
+                            }
+                        }
+                        steps { runPythonTests(venv: '.venv-test') }
+                    }
+                    stage('Lint') {
+                        agent {
+                            docker {
+                                image "${pyImage}"
+                                reuseNode true
+                            }
+                        }
+                        steps { runPythonLint(venv: '.venv-lint') }
+                    }
+                }
             }
             stage('Docker Build') {
                 steps { dockerBuild(image: env.IMAGE, tag: env.TAG) }
