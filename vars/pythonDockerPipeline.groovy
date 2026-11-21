@@ -4,6 +4,9 @@ def call(Map config) {
     def healthPath   = config.healthPath ?: '/health'
     def pyImage      = config.pythonImage ?: 'python:3.12-slim'
     def agentLabel   = config.agentLabel ?: 'docker'
+    def deployTarget = config.deployTarget ?: 'docker'
+    def namespace    = config.namespace ?: 'default'
+    def nodePort     = config.nodePort ?: 30080
 
     pipeline {
         agent { label "${agentLabel}" }
@@ -24,21 +27,11 @@ def call(Map config) {
                 failFast true
                 parallel {
                     stage('Unit Tests') {
-                        agent {
-                            docker {
-                                image "${pyImage}"
-                                reuseNode true
-                            }
-                        }
+                        agent { docker { image "${pyImage}"; reuseNode true } }
                         steps { runPythonTests(venv: '.venv-test') }
                     }
                     stage('Lint') {
-                        agent {
-                            docker {
-                                image "${pyImage}"
-                                reuseNode true
-                            }
-                        }
+                        agent { docker { image "${pyImage}"; reuseNode true } }
                         steps { runPythonLint(venv: '.venv-lint') }
                     }
                 }
@@ -46,17 +39,34 @@ def call(Map config) {
             stage('Docker Build') {
                 steps { dockerBuild(image: env.IMAGE, tag: env.TAG) }
             }
+            stage('Validate K8s') {
+                when { expression { deployTarget == 'k8s' } }
+                steps { validateK8s(image: env.IMAGE, tag: env.TAG) }
+            }
             stage('Docker Push') {
                 when { expression { env.BRANCH_NAME == deployBranch } }
                 steps { dockerPush(image: env.IMAGE, tag: env.TAG) }
             }
             stage('Deploy') {
                 when { expression { env.BRANCH_NAME == deployBranch } }
-                steps { deployContainer(name: config.appName, image: env.IMAGE, tag: env.TAG, port: port) }
+                steps {
+                    script {
+                        if (deployTarget == 'k8s') {
+                            deployK8s(appName: config.appName, image: env.IMAGE, tag: env.TAG, namespace: namespace)
+                        } else {
+                            deployContainer(name: config.appName, image: env.IMAGE, tag: env.TAG, port: port)
+                        }
+                    }
+                }
             }
             stage('Smoke Test') {
                 when { expression { env.BRANCH_NAME == deployBranch } }
-                steps { smokeTest("http://host.docker.internal:${port}${healthPath}") }
+                steps {
+                    script {
+                        def target = (deployTarget == 'k8s') ? nodePort : port
+                        smokeTest("http://host.docker.internal:${target}${healthPath}")
+                    }
+                }
             }
         }
 
