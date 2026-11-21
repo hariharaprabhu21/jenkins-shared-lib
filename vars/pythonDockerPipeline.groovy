@@ -51,7 +51,9 @@ def call(Map config) {
                 when { expression { env.BRANCH_NAME == deployBranch } }
                 steps {
                     script {
-                        if (deployTarget == 'k8s') {
+                        if (deployTarget == 'gitops') {
+                            updateGitOps(repo: config.gitopsRepo, path: config.gitopsPath, image: env.IMAGE, tag: env.TAG)
+                        } else if (deployTarget == 'k8s') {
                             deployK8s(appName: config.appName, image: env.IMAGE, tag: env.TAG, namespace: namespace)
                         } else {
                             deployContainer(name: config.appName, image: env.IMAGE, tag: env.TAG, port: port)
@@ -60,7 +62,7 @@ def call(Map config) {
                 }
             }
             stage('Smoke Test') {
-                when { expression { env.BRANCH_NAME == deployBranch } }
+                when { expression { env.BRANCH_NAME == deployBranch && deployTarget != 'gitops' } }
                 steps {
                     script {
                         def target = (deployTarget == 'k8s') ? nodePort : port
@@ -68,7 +70,6 @@ def call(Map config) {
                     }
                 }
             }
-        }
 
         post {
             always {
