@@ -70,6 +70,7 @@ def call(Map config) {
                     }
                 }
             }
+        }
 
         post {
             always {
