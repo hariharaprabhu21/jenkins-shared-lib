@@ -3,6 +3,6 @@ def call(Map config = [:]) {
     sh """
       python3 -m venv ${venv}
       ${venv}/bin/pip install --no-cache-dir flake8
-      ${venv}/bin/flake8 . --exclude=.venv* --select=E9,F63,F7,F82 --show-source --statistics
+      ${venv}/bin/flake8 . --exclude=.venv*,venv --select=E9,F63,F7,F82 --show-source --statistics
     """
 }

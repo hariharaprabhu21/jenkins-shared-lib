@@ -33,7 +33,7 @@ def call(Map config) {
                             }
                             stage('Lint') {
                                 agent { docker { image "${pyImage}"; reuseNode true } }
-                                steps { runPythonLint() }
+                                steps { runPythonTests(venv: '.venv-test') }
                             }
                         }
                     }
