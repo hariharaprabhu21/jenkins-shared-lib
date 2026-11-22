@@ -10,7 +10,7 @@ def call(Map config) {
               git config user.email "jenkins@localhost"
               sed -i 's|newTag: .*|newTag: ${config.tag}|' ${config.path}/kustomization.yaml
               git add ${config.path}/kustomization.yaml
-              git commit -m "Deploy ${config.image}:${config.tag} (${env.JOB_NAME} #${env.BUILD_NUMBER})" || echo "No change to commit"
+                                 git commit -m "Deploy ${config.image}:${config.tag} to ${config.path} (${env.JOB_NAME} #${env.BUILD_NUMBER})" || echo "No change to commit"
               git push origin HEAD:${branch}
             """
         }
